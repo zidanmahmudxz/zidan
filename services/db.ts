@@ -8,7 +8,7 @@ import { INITIAL_SETTINGS } from '../constants';
  * IMPORTANT: Replace YOUR_SUPABASE_ANON_KEY with your actual 'anon' key from Supabase Dashboard.
  */
 const SUPABASE_URL = 'https://maxuwumvpyqqijxhmrvd.supabase.co'; 
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
