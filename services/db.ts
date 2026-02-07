@@ -5,10 +5,10 @@ import { INITIAL_SETTINGS } from '../constants';
 
 /**
  * RENONX SUPABASE UPLINK
- * Fill in your credentials from Supabase Project Settings > API
+ * Credentials obtained from Supabase Dashboard > Project Settings > API
  */
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Replace with your URL
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Replace with your anon key
+const SUPABASE_URL = 'https://maxuwumvpyqqijxhmrvd.supabase.co'; 
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // আপনার Supabase ড্যাশবোর্ড থেকে 'anon' কি-টি এখানে বসান
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -24,25 +24,29 @@ export const db = {
 
   // Settings
   getSettings: async (): Promise<Settings> => {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('id', 1)
-      .single();
-    
-    if (error || !data) return INITIAL_SETTINGS;
-    
-    return {
-      siteName: data.site_name,
-      siteDescription: '', // Add columns to SQL if needed
-      heroHeadline: data.hero_headline,
-      heroSubheadline: data.hero_subheadline,
-      aboutBio: data.about_bio,
-      yearsExperience: data.years_experience,
-      missionStatement: data.mission_statement,
-      contactEmail: data.contact_email,
-      socialLinks: INITIAL_SETTINGS.socialLinks
-    };
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      
+      if (error || !data) return INITIAL_SETTINGS;
+      
+      return {
+        siteName: data.site_name,
+        siteDescription: '', 
+        heroHeadline: data.hero_headline,
+        heroSubheadline: data.hero_subheadline,
+        aboutBio: data.about_bio,
+        yearsExperience: data.years_experience,
+        missionStatement: data.mission_statement,
+        contactEmail: data.contact_email,
+        socialLinks: INITIAL_SETTINGS.socialLinks
+      };
+    } catch (e) {
+      return INITIAL_SETTINGS;
+    }
   },
   
   updateSettings: async (settings: Settings) => {
@@ -72,10 +76,11 @@ export const db = {
   addSkill: async (skill: Skill) => {
     const { error } = await supabase.from('skills').insert([skill]);
     if (!error) db.addLog(`Expertise module injected: ${skill.name}`, 'SUCCESS');
+    else db.addLog(`Skill injection failed: ${error.message}`, 'ERROR');
   },
 
   updateSkills: async (skills: Skill[]) => {
-    // Basic implementation for bulk updates if needed
+    // Bulk updates logic if needed
   },
 
   // Projects
@@ -142,7 +147,7 @@ export const db = {
     if (!error) db.addLog(`Article purged from Cloud: ID ${id}`, 'WARN');
   },
 
-  // Logs (Keeping Logs local for performance, but syncable)
+  // Logs (Local state logs)
   getLogs: (): SystemLog[] => {
     const data = localStorage.getItem(KEYS.LOGS);
     return data ? JSON.parse(data) : [];
@@ -159,15 +164,13 @@ export const db = {
     localStorage.setItem(KEYS.LOGS, JSON.stringify([newLog, ...current].slice(0, 50)));
   },
 
-  // Auth
+  // Auth (Simple logic remains, can be upgraded to Supabase Auth)
   getUser: (): User | null => {
     const data = localStorage.getItem(KEYS.USER);
     return data ? JSON.parse(data) : null;
   },
   
   login: (email: string, pass: string): User | null => {
-    // NOTE: In production, use Supabase Auth for real security.
-    // For now, keeping your simple logic.
     if (email === 'admin@renonx.com' && pass === 'password123') {
       const user = { id: 'admin-1', email, name: 'Zidan Mahmud' };
       localStorage.setItem(KEYS.USER, JSON.stringify(user));
