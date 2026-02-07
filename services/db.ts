@@ -8,7 +8,7 @@ import { INITIAL_SETTINGS } from '../constants';
  * Credentials obtained from Supabase Dashboard > Project Settings > API
  */
 const SUPABASE_URL = 'https://maxuwumvpyqqijxhmrvd.supabase.co'; 
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // আপনার Supabase ড্যাশবোর্ড থেকে 'anon' কি-টি এখানে বসান
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; // আপনার Supabase ড্যাশবোর্ড থেকে 'anon' কি-টি এখানে বসান
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
