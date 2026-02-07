@@ -41,27 +41,31 @@ export const db = {
       
       if (error || !data) return INITIAL_SETTINGS;
       
+      // Correctly map database snake_case to TypeScript camelCase
       return {
-        siteName: data.site_name,
-        siteDescription: '', 
-        heroHeadline: data.hero_headline,
-        heroSubheadline: data.hero_subheadline,
-        aboutBio: data.about_bio,
-        years_experience: data.years_experience,
-        mission_statement: data.mission_statement,
-        contact_email: data.contact_email,
-        profile_image_url: data.profile_image_url || INITIAL_SETTINGS.profileImageUrl,
-        socialLinks: INITIAL_SETTINGS.socialLinks
-      } as any;
+        siteName: data.site_name || INITIAL_SETTINGS.siteName,
+        siteDescription: data.site_description || INITIAL_SETTINGS.siteDescription, 
+        heroHeadline: data.hero_headline || INITIAL_SETTINGS.heroHeadline,
+        heroSubheadline: data.hero_subheadline || INITIAL_SETTINGS.heroSubheadline,
+        aboutBio: data.about_bio || INITIAL_SETTINGS.aboutBio,
+        yearsExperience: data.years_experience || INITIAL_SETTINGS.yearsExperience,
+        missionStatement: data.mission_statement || INITIAL_SETTINGS.missionStatement,
+        contactEmail: data.contact_email || INITIAL_SETTINGS.contactEmail,
+        profileImageUrl: data.profile_image_url || INITIAL_SETTINGS.profileImageUrl,
+        socialLinks: data.social_links || INITIAL_SETTINGS.socialLinks
+      };
     } catch (e) {
+      console.error("Fetch Settings Error:", e);
       return INITIAL_SETTINGS;
     }
   },
   
   updateSettings: async (settings: Settings) => {
+    // Use upsert so if row ID 1 doesn't exist, it creates it
     const { error } = await supabase
       .from('settings')
-      .update({
+      .upsert({
+        id: 1,
         site_name: settings.siteName,
         hero_headline: settings.heroHeadline,
         hero_subheadline: settings.heroSubheadline,
@@ -69,12 +73,16 @@ export const db = {
         years_experience: settings.yearsExperience,
         mission_statement: settings.missionStatement,
         contact_email: settings.contactEmail,
-        profile_image_url: settings.profileImageUrl
-      })
-      .eq('id', 1);
+        profile_image_url: settings.profileImageUrl,
+        social_links: settings.socialLinks
+      });
     
-    if (error) db.addLog(`Settings Update Failed: ${error.message}`, 'ERROR');
-    else db.addLog('Global parameters re-calibrated via Supabase.', 'SUCCESS');
+    if (error) {
+      db.addLog(`Settings Update Failed: ${error.message}`, 'ERROR');
+      throw error;
+    } else {
+      db.addLog('Global parameters re-calibrated via Supabase.', 'SUCCESS');
+    }
   },
 
   uploadImage: async (file: File): Promise<string | null> => {
@@ -83,8 +91,12 @@ export const db = {
       const fileExt = file.name.split('.').pop();
       const fileName = `profile_${Date.now()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
+      
+      // Ensure the bucket 'renonx-assets' is created in Supabase
       const { data, error } = await supabase.storage.from('renonx-assets').upload(filePath, file);
+      
       if (error) throw error;
+      
       const { data: { publicUrl } } = supabase.storage.from('renonx-assets').getPublicUrl(filePath);
       return publicUrl;
     } catch (err: any) {
