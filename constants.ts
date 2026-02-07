@@ -10,6 +10,7 @@ export const INITIAL_SETTINGS: Settings = {
   yearsExperience: 5,
   missionStatement: "To revolutionize digital safety through proactive defense and elegant engineering.",
   contactEmail: "contact@renonx.com",
+  profileImageUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=400",
   socialLinks: {
     github: "https://github.com",
     linkedin: "https://linkedin.com",
