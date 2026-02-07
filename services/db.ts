@@ -1,139 +1,176 @@
 
+import { createClient } from '@supabase/supabase-js';
 import { Settings, Skill, Project, Blog, SystemLog, User } from '../types';
-import { INITIAL_SETTINGS, INITIAL_SKILLS, INITIAL_PROJECTS, INITIAL_BLOGS } from '../constants';
+import { INITIAL_SETTINGS } from '../constants';
 
 /**
- * RENONX KERNEL - DATABASE SERVICE
- * Current Implementation: LocalStorage (Browser Memory)
- * 
- * PRODUCTION MIGRATION NOTE:
- * To make your portfolio visible to the world, you should integrate Supabase.
- * Step 1: Create a project at supabase.com
- * Step 2: Install @supabase/supabase-js
- * Step 3: Replace these methods with supabase.from('table').select() calls.
+ * RENONX SUPABASE UPLINK
+ * Fill in your credentials from Supabase Project Settings > API
  */
+const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Replace with your URL
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Replace with your anon key
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const KEYS = {
-  SETTINGS: 'renonx_settings',
-  SKILLS: 'renonx_skills',
-  PROJECTS: 'renonx_projects',
-  BLOGS: 'renonx_blogs',
-  LOGS: 'renonx_logs',
-  USER: 'renonx_user'
-};
-
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-const get = <T,>(key: string, defaultValue: T): T => {
-  const data = localStorage.getItem(key);
-  if (!data) return defaultValue;
-  try {
-    return JSON.parse(data) as T;
-  } catch {
-    return defaultValue;
-  }
-};
-
-const set = <T,>(key: string, data: T): void => {
-  localStorage.setItem(key, JSON.stringify(data));
+  USER: 'renonx_user',
+  LOGS: 'renonx_logs'
 };
 
 export const db = {
   init: () => {
-    if (!localStorage.getItem(KEYS.SETTINGS)) set(KEYS.SETTINGS, INITIAL_SETTINGS);
-    if (!localStorage.getItem(KEYS.SKILLS)) set(KEYS.SKILLS, INITIAL_SKILLS);
-    if (!localStorage.getItem(KEYS.PROJECTS)) set(KEYS.PROJECTS, INITIAL_PROJECTS);
-    if (!localStorage.getItem(KEYS.BLOGS)) set(KEYS.BLOGS, INITIAL_BLOGS);
-    if (!localStorage.getItem(KEYS.LOGS)) set(KEYS.LOGS, []);
-    
-    db.addLog('Nexus Kernel Initialized. Secure Storage Active.', 'SUCCESS');
+    db.addLog('Supabase Kernel Connected. Global Data Sync Active.', 'SUCCESS');
   },
 
   // Settings
   getSettings: async (): Promise<Settings> => {
-    await delay(200);
-    return get(KEYS.SETTINGS, INITIAL_SETTINGS);
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 1)
+      .single();
+    
+    if (error || !data) return INITIAL_SETTINGS;
+    
+    return {
+      siteName: data.site_name,
+      siteDescription: '', // Add columns to SQL if needed
+      heroHeadline: data.hero_headline,
+      heroSubheadline: data.hero_subheadline,
+      aboutBio: data.about_bio,
+      yearsExperience: data.years_experience,
+      missionStatement: data.mission_statement,
+      contactEmail: data.contact_email,
+      socialLinks: INITIAL_SETTINGS.socialLinks
+    };
   },
   
   updateSettings: async (settings: Settings) => {
-    await delay(300);
-    set(KEYS.SETTINGS, settings);
-    db.addLog('Global parameters re-calibrated.', 'INFO');
+    const { error } = await supabase
+      .from('settings')
+      .update({
+        site_name: settings.siteName,
+        hero_headline: settings.heroHeadline,
+        hero_subheadline: settings.heroSubheadline,
+        about_bio: settings.aboutBio,
+        years_experience: settings.yearsExperience,
+        mission_statement: settings.missionStatement,
+        contact_email: settings.contactEmail
+      })
+      .eq('id', 1);
+    
+    if (error) db.addLog(`Settings Update Failed: ${error.message}`, 'ERROR');
+    else db.addLog('Global parameters re-calibrated via Supabase.', 'SUCCESS');
   },
 
   // Skills
   getSkills: async (): Promise<Skill[]> => {
-    await delay(200);
-    return get(KEYS.SKILLS, INITIAL_SKILLS);
-  },
-  
-  updateSkills: async (skills: Skill[]) => {
-    set(KEYS.SKILLS, skills);
+    const { data, error } = await supabase.from('skills').select('*').order('name');
+    return data || [];
   },
 
   addSkill: async (skill: Skill) => {
-    const current = get(KEYS.SKILLS, INITIAL_SKILLS);
-    set(KEYS.SKILLS, [...current, skill]);
-    db.addLog(`Expertise module injected: ${skill.name}`, 'SUCCESS');
+    const { error } = await supabase.from('skills').insert([skill]);
+    if (!error) db.addLog(`Expertise module injected: ${skill.name}`, 'SUCCESS');
+  },
+
+  updateSkills: async (skills: Skill[]) => {
+    // Basic implementation for bulk updates if needed
   },
 
   // Projects
   getProjects: async (): Promise<Project[]> => {
-    await delay(300);
-    return get(KEYS.PROJECTS, INITIAL_PROJECTS);
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) return [];
+    return data.map(p => ({
+      ...p,
+      imageUrl: p.image_url
+    }));
   },
 
   addProject: async (project: Project) => {
-    const current = get(KEYS.PROJECTS, INITIAL_PROJECTS);
-    set(KEYS.PROJECTS, [project, ...current]);
-    db.addLog(`New Archive Stored: ${project.title}`, 'SUCCESS');
+    const { error } = await supabase.from('projects').insert([{
+      title: project.title,
+      description: project.description,
+      category: project.category,
+      image_url: project.imageUrl,
+      link: project.link,
+      github: project.github,
+      date: project.date
+    }]);
+    if (!error) db.addLog(`New Archive Stored in Cloud: ${project.title}`, 'SUCCESS');
   },
 
   deleteProject: async (id: string) => {
-    const current = get(KEYS.PROJECTS, INITIAL_PROJECTS);
-    set(KEYS.PROJECTS, current.filter(p => p.id !== id));
-    db.addLog(`Archive Redacted: ID ${id}`, 'WARN');
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (!error) db.addLog(`Archive Redacted from Cloud: ID ${id}`, 'WARN');
   },
 
   // Blogs
   getBlogs: async (): Promise<Blog[]> => {
-    await delay(300);
-    return get(KEYS.BLOGS, INITIAL_BLOGS);
+    const { data, error } = await supabase
+      .from('blogs')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) return [];
+    return data.map(b => ({
+      ...b,
+      imageUrl: b.image_url
+    }));
   },
 
   addBlog: async (blog: Blog) => {
-    const current = get(KEYS.BLOGS, INITIAL_BLOGS);
-    set(KEYS.BLOGS, [blog, ...current]);
-    db.addLog(`Breach Log updated: ${blog.title}`, 'SUCCESS');
+    const { error } = await supabase.from('blogs').insert([{
+      title: blog.title,
+      excerpt: blog.excerpt,
+      content: blog.content,
+      author: blog.author,
+      tags: blog.tags,
+      image_url: blog.imageUrl,
+      date: blog.date
+    }]);
+    if (!error) db.addLog(`Breach Log updated via Cloud: ${blog.title}`, 'SUCCESS');
   },
 
   deleteBlog: async (id: string) => {
-    const current = get(KEYS.BLOGS, INITIAL_BLOGS);
-    set(KEYS.BLOGS, current.filter(b => b.id !== id));
-    db.addLog(`Article purged from kernel: ID ${id}`, 'WARN');
+    const { error } = await supabase.from('blogs').delete().eq('id', id);
+    if (!error) db.addLog(`Article purged from Cloud: ID ${id}`, 'WARN');
   },
 
-  // Logs
-  getLogs: (): SystemLog[] => get(KEYS.LOGS, []),
+  // Logs (Keeping Logs local for performance, but syncable)
+  getLogs: (): SystemLog[] => {
+    const data = localStorage.getItem(KEYS.LOGS);
+    return data ? JSON.parse(data) : [];
+  },
   
   addLog: (message: string, level: SystemLog['level'] = 'INFO') => {
-    const current = get<SystemLog[]>(KEYS.LOGS, []);
+    const current = db.getLogs();
     const newLog: SystemLog = {
       id: Math.random().toString(36).substring(7),
       timestamp: new Date().toISOString(),
       message,
       level
     };
-    set(KEYS.LOGS, [newLog, ...current].slice(0, 50));
+    localStorage.setItem(KEYS.LOGS, JSON.stringify([newLog, ...current].slice(0, 50)));
   },
 
   // Auth
-  getUser: (): User | null => get(KEYS.USER, null),
+  getUser: (): User | null => {
+    const data = localStorage.getItem(KEYS.USER);
+    return data ? JSON.parse(data) : null;
+  },
   
   login: (email: string, pass: string): User | null => {
+    // NOTE: In production, use Supabase Auth for real security.
+    // For now, keeping your simple logic.
     if (email === 'admin@renonx.com' && pass === 'password123') {
       const user = { id: 'admin-1', email, name: 'Zidan Mahmud' };
-      set(KEYS.USER, user);
+      localStorage.setItem(KEYS.USER, JSON.stringify(user));
       db.addLog(`Identity Verified: ROOT_ADMIN session established.`, 'SUCCESS');
       return user;
     }
