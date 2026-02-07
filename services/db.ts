@@ -5,10 +5,10 @@ import { INITIAL_SETTINGS } from '../constants';
 
 /**
  * RENONX SUPABASE UPLINK
- * Credentials obtained from Supabase Dashboard > Project Settings > API
+ * IMPORTANT: Replace YOUR_SUPABASE_ANON_KEY with your actual 'anon' key from Supabase Dashboard.
  */
 const SUPABASE_URL = 'https://maxuwumvpyqqijxhmrvd.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; // আপনার Anon Key টি এখানে নিশ্চিত করুন
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -79,20 +79,33 @@ export const db = {
 
   /**
    * Upload an image to Supabase Storage
-   * Requires a bucket named 'renonx-assets' with public access policy
+   * REQUIREMENT: A public bucket named 'renonx-assets' in Supabase.
    */
   uploadImage: async (file: File): Promise<string | null> => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `profile/${fileName}`;
+      // 1. File validation
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Selected file is not an image.');
+      }
 
+      const fileExt = file.name.split('.').pop();
+      const fileName = `profile_${Date.now()}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      // 2. Upload to bucket
       const { data, error } = await supabase.storage
         .from('renonx-assets')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Storage Error:", error);
+        throw new Error(`Storage Error: ${error.message}. Ensure bucket 'renonx-assets' exists and is Public.`);
+      }
 
+      // 3. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('renonx-assets')
         .getPublicUrl(filePath);
@@ -101,6 +114,7 @@ export const db = {
       return publicUrl;
     } catch (err: any) {
       db.addLog(`Asset Upload Failed: ${err.message}`, 'ERROR');
+      alert(`Upload Error: ${err.message}`);
       return null;
     }
   },
