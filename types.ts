@@ -14,6 +14,7 @@ export interface Settings {
   yearsExperience: number;
   missionStatement: string;
   contactEmail: string;
+  profileImageUrl: string;
   socialLinks: {
     github: string;
     linkedin: string;
