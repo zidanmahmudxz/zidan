@@ -8,7 +8,7 @@ import { INITIAL_SETTINGS } from '../constants';
  * Credentials obtained from Supabase Dashboard > Project Settings > API
  */
 const SUPABASE_URL = 'https://maxuwumvpyqqijxhmrvd.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; // আপনার Anon Key টি এখানে বসান
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; // আপনার Anon Key টি এখানে নিশ্চিত করুন
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -75,6 +75,34 @@ export const db = {
     
     if (error) db.addLog(`Settings Update Failed: ${error.message}`, 'ERROR');
     else db.addLog('Global parameters re-calibrated via Supabase.', 'SUCCESS');
+  },
+
+  /**
+   * Upload an image to Supabase Storage
+   * Requires a bucket named 'renonx-assets' with public access policy
+   */
+  uploadImage: async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `profile/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('renonx-assets')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('renonx-assets')
+        .getPublicUrl(filePath);
+
+      db.addLog(`Asset Uplinked: ${fileName}`, 'SUCCESS');
+      return publicUrl;
+    } catch (err: any) {
+      db.addLog(`Asset Upload Failed: ${err.message}`, 'ERROR');
+      return null;
+    }
   },
 
   getSkills: async (): Promise<Skill[]> => {
