@@ -3,13 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/db';
 import { Settings } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
-import { Save, RefreshCw, AlertTriangle, ShieldCheck, Image as ImageIcon, Upload, Loader2, CheckCircle2 } from 'lucide-react';
+import { Save, RefreshCw, AlertTriangle, ShieldCheck, Image as ImageIcon, Upload, Loader2, AlertCircle } from 'lucide-react';
 
 const ContentManager: React.FC = () => {
   const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,10 +37,19 @@ const ContentManager: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 1. Show instant local preview
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
     setUploading(true);
+
+    // 2. Upload to Cloud
     const publicUrl = await db.uploadImage(file);
+    
     if (publicUrl) {
       setSettings(prev => ({ ...prev, profileImageUrl: publicUrl }));
+      setPreviewUrl(null); // Clear preview once uploaded
+    } else {
+      setPreviewUrl(null); // Fallback to current if failed
     }
     setUploading(false);
   };
@@ -70,7 +80,6 @@ const ContentManager: React.FC = () => {
               CORE PARAMETERS
             </h3>
             
-            {/* Identity Visual Control */}
             <div className="p-6 bg-slate-900/50 rounded-2xl border border-slate-800 space-y-6">
                <label className="text-xs font-mono font-bold text-slate-500 uppercase flex items-center gap-2">
                 <ImageIcon size={14} /> Profile Identity Visual
@@ -78,15 +87,16 @@ const ContentManager: React.FC = () => {
               
               <div className="flex flex-col md:flex-row gap-8 items-center">
                 <div className="relative group">
-                   <div className="w-40 h-40 rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl relative">
+                   <div className="w-40 h-40 rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl relative bg-slate-950">
                       <img 
-                        src={settings.profileImageUrl} 
+                        src={previewUrl || settings.profileImageUrl} 
                         className={`w-full h-full object-cover transition-opacity ${uploading ? 'opacity-30' : 'opacity-100'}`} 
                         alt="Profile Preview" 
                       />
                       {uploading && (
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950/40">
                            <Loader2 className="text-cyan-400 animate-spin" size={32} />
+                           <span className="text-[10px] text-cyan-400 font-mono animate-pulse uppercase">Syncing...</span>
                         </div>
                       )}
                    </div>
@@ -94,7 +104,7 @@ const ContentManager: React.FC = () => {
                       <button 
                         type="button"
                         onClick={triggerFileInput}
-                        className="absolute -bottom-3 -right-3 p-3 bg-cyan-500 text-slate-950 rounded-2xl hover:bg-cyan-400 transition-all shadow-xl hover:scale-110 active:scale-95"
+                        className="absolute -bottom-3 -right-3 p-3 bg-cyan-500 text-slate-950 rounded-2xl hover:bg-cyan-400 transition-all shadow-xl hover:scale-110 active:scale-95 z-10"
                       >
                         <Upload size={20} />
                       </button>
@@ -119,10 +129,12 @@ const ContentManager: React.FC = () => {
                         placeholder="https://..."
                       />
                    </div>
-                   <p className="text-[10px] text-slate-600 font-mono leading-relaxed">
-                     Accepted: JPG, PNG, WEBP. Max size: 2MB. <br/>
-                     Uploading a file will automatically update the URL field.
-                   </p>
+                   <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 flex items-start gap-3">
+                      <AlertCircle size={16} className="text-slate-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
+                        Ensure bucket <strong>'renonx-assets'</strong> exists in Supabase Storage with <strong>Public</strong> access. Max file size: 2MB.
+                      </p>
+                   </div>
                 </div>
               </div>
             </div>
