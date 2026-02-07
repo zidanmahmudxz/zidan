@@ -1,272 +1,265 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/db';
-import { Project } from '../types';
-import { Plus, Trash2, ExternalLink, RefreshCw, Loader2, Image as ImageIcon, Link as LinkIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Settings } from '../types';
+import { INITIAL_SETTINGS } from '../constants';
+import { Save, ShieldCheck, Image as ImageIcon, Upload, Loader2, AlertCircle, AlertTriangle } from 'lucide-react';
 
-const ProjectManager: React.FC = () => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isAdding, setIsAdding] = useState(false);
+const ContentManager: React.FC = () => {
+  const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(false);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [newProjectSyncing, setNewProjectSyncing] = useState(false);
-  
-  const [newProject, setNewProject] = useState<Partial<Project>>({
-    title: '',
-    description: '',
-    category: 'Web Dev',
-    link: '',
-    imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800'
-  });
-
-  const fetchProjects = async () => {
-    const data = await db.getProjects();
-    setProjects(data);
-  };
+  const [uploading, setUploading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchProjects();
+    const fetchSettings = async () => {
+      const data = await db.getSettings();
+      setSettings(data);
+    };
+    fetchSettings();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Permanently redact this asset from archives?')) {
-      await db.deleteProject(id);
-      fetchProjects();
-    }
-  };
-
-  // Logic to sync preview for an EXISTING project
-  const handleSyncExisting = async (project: Project) => {
-    if (!project.link || !project.link.startsWith('http')) {
-      alert('Project has no valid target link to sync.');
-      return;
-    }
-
-    setSyncingId(project.id);
-    const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(project.link)}&screenshot=true&embed=screenshot.url`;
-    
-    try {
-      await db.updateProject(project.id, { imageUrl: screenshotUrl });
-      await fetchProjects();
-      db.addLog(`Archives synchronized for node: ${project.title}`, 'SUCCESS');
-    } catch (err) {
-      db.addLog('Failed to synchronize archive visual.', 'ERROR');
-    } finally {
-      setSyncingId(null);
-    }
-  };
-
-  // Logic to sync preview for the NEW project being added
-  const handleSyncNew = () => {
-    if (!newProject.link || !newProject.link.startsWith('http')) {
-      alert('Enter a valid URL first (e.g., https://renonx.com)');
-      return;
-    }
-    
-    setNewProjectSyncing(true);
-    const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(newProject.link)}&screenshot=true&embed=screenshot.url`;
-    
-    // Simulate slight delay for effect
-    setTimeout(() => {
-      setNewProject(prev => ({ ...prev, imageUrl: screenshotUrl }));
-      setNewProjectSyncing(false);
-      db.addLog('Visual recon data captured for new project.', 'SUCCESS');
-    }, 1000);
-  };
-
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const project: Project = {
-      ...newProject as Project,
-      id: Math.random().toString(36).substring(7),
-      date: new Date().toISOString().split('T')[0]
-    };
-    await db.addProject(project);
-    await fetchProjects();
-    setLoading(false);
-    setIsAdding(false);
-    setNewProject({
-      title: '',
-      description: '',
-      category: 'Web Dev',
-      link: '',
-      imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800'
-    });
+    try {
+      await db.updateSettings(settings);
+      db.addLog('Global kernel parameters updated successfully.', 'SUCCESS');
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      db.addLog('Failed to update global settings.', 'ERROR');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 1. Show instant local preview
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    setUploading(true);
+
+    try {
+      // 2. Upload to Cloud
+      const publicUrl = await db.uploadImage(file);
+      
+      if (publicUrl) {
+        setSettings(prev => ({ ...prev, profileImageUrl: publicUrl }));
+        setPreviewUrl(null); // Clear preview once uploaded
+        db.addLog('New profile identity visual uploaded.', 'SUCCESS');
+      } else {
+        setPreviewUrl(null); // Fallback to current if failed
+        alert('Upload failed. Check if bucket "renonx-assets" exists in Supabase Storage.');
+      }
+    } catch (err) {
+      setPreviewUrl(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-black text-white mb-2 uppercase tracking-tighter">Secure Archives</h1>
-          <p className="text-slate-400 font-mono text-sm tracking-tight uppercase">Index and manage technical deployment assets.</p>
+          <h1 className="text-4xl font-black text-white mb-2 uppercase tracking-tighter">Global Configuration</h1>
+          <p className="text-slate-400 font-mono text-sm tracking-tight uppercase">Master controls for identity, headlines, and mission parameters.</p>
         </div>
-        <button 
-          onClick={() => setIsAdding(!isAdding)}
-          className={`flex items-center gap-2 px-8 py-4 ${isAdding ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-cyan-500 text-slate-950'} font-bold rounded-2xl transition-all border shadow-xl hover:scale-105 active:scale-95`}
-        >
-          {isAdding ? 'Abort Injection' : <><Plus size={20} /> Inject Asset</>}
-        </button>
+        {success && (
+          <div className="flex items-center gap-2 text-green-400 text-sm font-mono animate-bounce bg-green-500/10 px-6 py-2 rounded-full border border-green-500/20">
+            <ShieldCheck size={18} /> KERNEL_UPDATED
+          </div>
+        )}
       </div>
 
-      {isAdding && (
-        <div className="glass p-8 rounded-3xl border border-cyan-500/30 animate-in slide-in-from-top-4 duration-300">
-          <form onSubmit={handleAdd} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Project Identification</label>
-                <input 
-                  type="text" 
-                  value={newProject.title}
-                  onChange={e => setNewProject({...newProject, title: e.target.value})}
-                  className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-cyan-500 transition-all"
-                  placeholder="E.g. Nexus Core Dashboard"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Protocol Type</label>
-                  <select 
-                    value={newProject.category}
-                    onChange={e => setNewProject({...newProject, category: e.target.value as any})}
-                    className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-cyan-500 appearance-none"
-                  >
-                    <option value="Web Dev">Web Development</option>
-                    <option value="Security">Cyber Security</option>
-                    <option value="Pentesting">Pentesting</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Target Link</label>
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      value={newProject.link}
-                      onChange={e => setNewProject({...newProject, link: e.target.value})}
-                      className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-cyan-500 pl-10"
-                      placeholder="https://..."
-                    />
-                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Intelligence Summary</label>
-                <textarea 
-                  rows={4}
-                  value={newProject.description}
-                  onChange={e => setNewProject({...newProject, description: e.target.value})}
-                  className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-white resize-none outline-none focus:border-cyan-500"
-                  placeholder="System architectural details..."
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Visual Recon (Preview)</label>
-                  <button 
-                    type="button" 
-                    onClick={handleSyncNew}
-                    disabled={newProjectSyncing}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-cyan-500/20 transition-all"
-                  >
-                    {newProjectSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    Sync Live Preview
-                  </button>
-                </div>
-                
-                <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-slate-800 bg-slate-950 flex items-center justify-center">
-                   <img src={newProject.imageUrl} className={`w-full h-full object-cover transition-opacity ${newProjectSyncing ? 'opacity-20' : 'opacity-60'}`} alt="Preview" />
-                   {newProjectSyncing && (
-                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <Loader2 size={32} className="text-cyan-400 animate-spin" />
-                        <span className="text-[10px] font-mono text-cyan-400 animate-pulse uppercase tracking-[0.2em]">Syncing...</span>
-                     </div>
+      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="glass p-8 rounded-[2.5rem] border border-slate-800 space-y-8">
+            <h3 className="text-xl font-bold text-white border-b border-slate-800 pb-4 flex items-center gap-3">
+              <span className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_#22d3ee]"></span>
+              CORE PARAMETERS
+            </h3>
+            
+            {/* Profile Visual Section */}
+            <div className="p-8 bg-slate-900/50 rounded-3xl border border-slate-800 space-y-6">
+              <label className="text-xs font-mono font-bold text-slate-500 uppercase flex items-center gap-2 tracking-widest">
+                <ImageIcon size={14} /> Profile Identity Visual
+              </label>
+              
+              <div className="flex flex-col md:flex-row gap-8 items-center">
+                <div className="relative group">
+                   <div className="w-40 h-40 rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl relative bg-slate-950">
+                      <img 
+                        src={previewUrl || settings.profileImageUrl} 
+                        className={`w-full h-full object-cover transition-opacity ${uploading ? 'opacity-30' : 'opacity-100'}`} 
+                        alt="Profile Preview" 
+                      />
+                      {uploading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950/40 backdrop-blur-sm">
+                           <Loader2 className="text-cyan-400 animate-spin" size={32} />
+                           <span className="text-[10px] text-cyan-400 font-mono animate-pulse uppercase">Syncing...</span>
+                        </div>
+                      )}
+                   </div>
+                   {!uploading && (
+                      <button 
+                        type="button"
+                        onClick={triggerFileInput}
+                        className="absolute -bottom-3 -right-3 p-4 bg-cyan-500 text-slate-950 rounded-2xl hover:bg-cyan-400 transition-all shadow-xl hover:scale-110 active:scale-95 z-10"
+                      >
+                        <Upload size={20} />
+                      </button>
                    )}
                 </div>
-              </div>
 
-              <button 
-                type="submit"
-                disabled={loading || newProjectSyncing}
-                className="w-full p-5 bg-cyan-500 text-slate-950 font-black rounded-2xl transition-all hover:bg-cyan-400 flex items-center justify-center gap-3 uppercase tracking-widest text-xs shadow-xl shadow-cyan-500/20"
-              >
-                {loading ? <Loader2 className="animate-spin" /> : <><CheckCircle2 size={20} /> Commit Archive Injection</>}
-              </button>
+                <div className="flex-grow space-y-4 w-full">
+                   <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="image/*"
+                   />
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-2 block">Direct Source URL</label>
+                      <input 
+                        type="text" 
+                        value={settings.profileImageUrl}
+                        onChange={e => setSettings({...settings, profileImageUrl: e.target.value})}
+                        className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white text-sm font-mono outline-none focus:border-cyan-500 transition-all"
+                        placeholder="https://..."
+                      />
+                   </div>
+                   <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 flex items-start gap-3">
+                      <AlertCircle size={16} className="text-slate-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
+                        Security Advisory: Ensure bucket <strong>'renonx-assets'</strong> is provisioned in Supabase Storage with <strong>Public</strong> read permissions.
+                      </p>
+                   </div>
+                </div>
+              </div>
             </div>
-          </form>
+
+            {/* Basic Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">Site Identity</label>
+                <input 
+                  type="text" 
+                  value={settings.siteName}
+                  onChange={e => setSettings({...settings, siteName: e.target.value})}
+                  className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white focus:border-cyan-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">Operations Experience (Years)</label>
+                <input 
+                  type="number" 
+                  value={settings.yearsExperience}
+                  onChange={e => setSettings({...settings, yearsExperience: parseInt(e.target.value)})}
+                  className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white focus:border-cyan-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">Hero Headline</label>
+              <input 
+                type="text" 
+                value={settings.heroHeadline}
+                onChange={e => setSettings({...settings, heroHeadline: e.target.value})}
+                className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white focus:border-cyan-500 outline-none transition-all font-bold"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">Hero Subheadline</label>
+              <textarea 
+                rows={2}
+                value={settings.heroSubheadline}
+                onChange={e => setSettings({...settings, heroSubheadline: e.target.value})}
+                className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white resize-none focus:border-cyan-500 outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">About Intelligence Bio</label>
+              <textarea 
+                rows={5}
+                value={settings.aboutBio}
+                onChange={e => setSettings({...settings, aboutBio: e.target.value})}
+                className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white resize-none focus:border-cyan-500 outline-none transition-all leading-relaxed"
+              />
+            </div>
+          </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {projects.map((project) => (
-          <div key={project.id} className="glass rounded-[2rem] border border-slate-800 flex flex-col group overflow-hidden hover:border-cyan-500/40 transition-all hover:-translate-y-1 shadow-2xl">
-            {/* Mock Browser Header */}
-            <div className="bg-slate-900/80 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/30 group-hover:bg-red-500/60 transition-colors"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/30 group-hover:bg-yellow-500/60 transition-colors"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/30 group-hover:bg-green-500/60 transition-colors"></div>
+        {/* Sidebar / Socials */}
+        <div className="space-y-8">
+          <div className="glass p-8 rounded-[2.5rem] border border-slate-800 space-y-6">
+            <h3 className="text-xl font-bold text-white border-b border-slate-800 pb-4 uppercase tracking-tighter">SOCIAL UPLINKS</h3>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">Secure Contact Email</label>
+                <input 
+                  type="email" 
+                  value={settings.contactEmail}
+                  onChange={e => setSettings({...settings, contactEmail: e.target.value})}
+                  className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+                />
               </div>
-              <div className="text-[9px] font-mono text-slate-600 group-hover:text-cyan-500/50 transition-colors truncate px-4 max-w-[150px]">
-                {project.link.replace('https://', '') || 'localhost'}
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">Github Repository</label>
+                <input 
+                  type="text" 
+                  value={settings.socialLinks.github}
+                  onChange={e => setSettings({...settings, socialLinks: {...settings.socialLinks, github: e.target.value}})}
+                  className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+                />
               </div>
-              <div className="w-8"></div>
-            </div>
-
-            <div className="relative aspect-video overflow-hidden">
-              <img src={project.imageUrl} alt={project.title} className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${syncingId === project.id ? 'opacity-20 blur-sm' : 'opacity-100'}`} />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
-              <div className="absolute top-3 right-3 px-3 py-1 bg-slate-950/90 text-cyan-400 text-[9px] font-mono border border-cyan-500/20 rounded-full uppercase tracking-widest font-bold shadow-lg">
-                {project.category}
-              </div>
-              
-              {syncingId === project.id && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                   <Loader2 size={24} className="text-cyan-400 animate-spin" />
-                   <span className="text-[10px] text-cyan-400 font-mono animate-pulse uppercase">Syncing...</span>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 flex-grow flex flex-col gap-4">
-              <h3 className="text-xl font-bold text-white group-hover:text-cyan-400 transition-colors line-clamp-1">{project.title}</h3>
-              <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">{project.description}</p>
-              
-              <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-800/50">
-                <div className="flex gap-2">
-                  <a href={project.link} target="_blank" className="p-2 text-slate-500 hover:text-cyan-400 transition-colors bg-slate-900 rounded-xl hover:bg-slate-800 border border-slate-800">
-                    <ExternalLink size={18} />
-                  </a>
-                  <button 
-                    onClick={() => handleSyncExisting(project)}
-                    disabled={syncingId !== null}
-                    title="Sync Website Preview"
-                    className="p-2 text-slate-500 hover:text-green-400 transition-colors bg-slate-900 rounded-xl hover:bg-slate-800 border border-slate-800 disabled:opacity-30"
-                  >
-                    <RefreshCw size={18} className={syncingId === project.id ? 'animate-spin' : ''} />
-                  </button>
-                </div>
-                <button 
-                  onClick={() => handleDelete(project.id)}
-                  className="p-2 text-slate-600 hover:text-red-500 transition-colors hover:bg-red-500/10 rounded-xl"
-                >
-                  <Trash2 size={18} />
-                </button>
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest ml-1">LinkedIn Profile</label>
+                <input 
+                  type="text" 
+                  value={settings.socialLinks.linkedin}
+                  onChange={e => setSettings({...settings, socialLinks: {...settings.socialLinks, linkedin: e.target.value}})}
+                  className="w-full bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+                />
               </div>
             </div>
           </div>
-        ))}
-      </div>
+
+          {/* Save Action Card */}
+          <div className="p-8 glass bg-red-500/[0.03] rounded-[2.5rem] border border-red-500/10 space-y-6 shadow-2xl">
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertTriangle size={20} className="animate-pulse" />
+              <h4 className="font-bold uppercase tracking-[0.1em] text-sm">Deployment Protocol</h4>
+            </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed font-mono uppercase tracking-tight">
+              Executing this operation will broadcast changes to the production kernel. Previous parameters will be overwritten.
+            </p>
+            <button 
+              type="submit"
+              disabled={loading || uploading}
+              className="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-cyan-500/20 uppercase tracking-[0.2em] text-xs active:scale-95"
+            >
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> COMMIT_CHANGES</>}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   );
 };
 
-export default ProjectManager;
+export default ContentManager;
