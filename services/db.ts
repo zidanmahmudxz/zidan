@@ -18,27 +18,19 @@ const KEYS = {
 };
 
 export const db = {
-  // কানেকশন টেস্ট করার জন্য নতুন মেথড
   init: async () => {
     try {
-      // একটি সিম্পল কুয়েরি করে চেক করছি কানেকশন ঠিক আছে কি না
       const { error } = await supabase.from('settings').select('id').limit(1);
-      
       if (error) {
-        if (error.message.includes('apiKey')) {
-          db.addLog('CRITICAL: Supabase API Key (Anon Key) missing or invalid.', 'ERROR');
-        } else {
-          db.addLog(`Kernel Link Error: ${error.message}`, 'ERROR');
-        }
+        db.addLog(`Kernel Link Error: ${error.message}`, 'ERROR');
       } else {
         db.addLog('Nexus Uplink Established. Cloud Database Syncing...', 'SUCCESS');
       }
     } catch (err) {
-      db.addLog('Kernel Initialization Failed. Check Network/API Key.', 'ERROR');
+      db.addLog('Kernel Initialization Failed.', 'ERROR');
     }
   },
 
-  // Settings
   getSettings: async (): Promise<Settings> => {
     try {
       const { data, error } = await supabase
@@ -58,6 +50,7 @@ export const db = {
         yearsExperience: data.years_experience,
         missionStatement: data.mission_statement,
         contactEmail: data.contact_email,
+        profileImageUrl: data.profile_image_url || INITIAL_SETTINGS.profileImageUrl,
         socialLinks: INITIAL_SETTINGS.socialLinks
       };
     } catch (e) {
@@ -75,7 +68,8 @@ export const db = {
         about_bio: settings.aboutBio,
         years_experience: settings.yearsExperience,
         mission_statement: settings.missionStatement,
-        contact_email: settings.contactEmail
+        contact_email: settings.contactEmail,
+        profile_image_url: settings.profileImageUrl
       })
       .eq('id', 1);
     
@@ -83,41 +77,28 @@ export const db = {
     else db.addLog('Global parameters re-calibrated via Supabase.', 'SUCCESS');
   },
 
-  // Skills
   getSkills: async (): Promise<Skill[]> => {
     const { data, error } = await supabase.from('skills').select('*').order('name');
-    if (error) {
-       db.addLog(`Failed to fetch expertise matrix: ${error.message}`, 'ERROR');
-       return [];
-    }
     return data || [];
   },
 
   addSkill: async (skill: Skill) => {
     const { error } = await supabase.from('skills').insert([skill]);
     if (!error) db.addLog(`Expertise module injected: ${skill.name}`, 'SUCCESS');
-    else db.addLog(`Skill injection failed: ${error.message}`, 'ERROR');
   },
 
-  // Added deleteSkill to support expertise management
   deleteSkill: async (id: string) => {
     const { error } = await supabase.from('skills').delete().eq('id', id);
-    if (!error) db.addLog(`Skill module redacted from Cloud: ID ${id}`, 'WARN');
-    else db.addLog(`Skill deletion failed: ${error.message}`, 'ERROR');
+    if (!error) db.addLog(`Skill module redacted.`, 'WARN');
   },
 
-  // Projects
   getProjects: async (): Promise<Project[]> => {
     const { data, error } = await supabase
       .from('projects')
       .select('*')
       .order('date', { ascending: false });
-    
     if (error) return [];
-    return data.map(p => ({
-      ...p,
-      imageUrl: p.image_url
-    }));
+    return data.map(p => ({ ...p, imageUrl: p.image_url }));
   },
 
   addProject: async (project: Project) => {
@@ -130,27 +111,20 @@ export const db = {
       github: project.github,
       date: project.date
     }]);
-    if (!error) db.addLog(`New Archive Stored in Cloud: ${project.title}`, 'SUCCESS');
-    else db.addLog(`Project storage failed: ${error.message}`, 'ERROR');
+    if (!error) db.addLog(`Archive Stored: ${project.title}`, 'SUCCESS');
   },
 
   deleteProject: async (id: string) => {
-    const { error } = await supabase.from('projects').delete().eq('id', id);
-    if (!error) db.addLog(`Archive Redacted from Cloud: ID ${id}`, 'WARN');
+    await supabase.from('projects').delete().eq('id', id);
   },
 
-  // Blogs
   getBlogs: async (): Promise<Blog[]> => {
     const { data, error } = await supabase
       .from('blogs')
       .select('*')
       .order('date', { ascending: false });
-    
     if (error) return [];
-    return data.map(b => ({
-      ...b,
-      imageUrl: b.image_url
-    }));
+    return data.map(b => ({ ...b, imageUrl: b.image_url }));
   },
 
   addBlog: async (blog: Blog) => {
@@ -163,16 +137,13 @@ export const db = {
       image_url: blog.imageUrl,
       date: blog.date
     }]);
-    if (!error) db.addLog(`Breach Log updated via Cloud: ${blog.title}`, 'SUCCESS');
-    else db.addLog(`Blog post failed: ${error.message}`, 'ERROR');
+    if (!error) db.addLog(`Breach Log updated: ${blog.title}`, 'SUCCESS');
   },
 
   deleteBlog: async (id: string) => {
-    const { error } = await supabase.from('blogs').delete().eq('id', id);
-    if (!error) db.addLog(`Article purged from Cloud: ID ${id}`, 'WARN');
+    await supabase.from('blogs').delete().eq('id', id);
   },
 
-  // Logs (Local storage for session history)
   getLogs: (): SystemLog[] => {
     const data = localStorage.getItem(KEYS.LOGS);
     return data ? JSON.parse(data) : [];
@@ -189,7 +160,6 @@ export const db = {
     localStorage.setItem(KEYS.LOGS, JSON.stringify([newLog, ...current].slice(0, 50)));
   },
 
-  // Auth
   getUser: (): User | null => {
     const data = localStorage.getItem(KEYS.USER);
     return data ? JSON.parse(data) : null;
@@ -199,15 +169,13 @@ export const db = {
     if (email === 'admin@renonx.com' && pass === 'password123') {
       const user = { id: 'admin-1', email, name: 'Zidan Mahmud' };
       localStorage.setItem(KEYS.USER, JSON.stringify(user));
-      db.addLog(`Identity Verified: ROOT_ADMIN session established.`, 'SUCCESS');
+      db.addLog(`Identity Verified: ROOT_ADMIN established.`, 'SUCCESS');
       return user;
     }
-    db.addLog(`Access Denied: Failed login attempt for ${email}`, 'ERROR');
     return null;
   },
 
   logout: () => {
     localStorage.removeItem(KEYS.USER);
-    db.addLog('Session Terminated. Buffer Cleared.', 'INFO');
   }
 };
