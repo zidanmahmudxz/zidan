@@ -1,0 +1,8 @@
+{
+  "name": "RenonX - Zidan Mahmud Portfolio",
+  "description": "Ultra-premium Ethical Hacker & Web Developer portfolio for Zidan Mahmud and RenonX company. Features a cyber-security aesthetic with a full administrative Command Center.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
