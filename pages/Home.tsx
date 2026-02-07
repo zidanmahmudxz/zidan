@@ -72,7 +72,7 @@ const Home: React.FC = () => {
                 
                 <div className="relative w-32 h-32 md:w-40 md:h-40 shrink-0 rounded-3xl overflow-hidden border-2 border-cyan-400/50 shadow-[0_0_20px_rgba(34,211,238,0.3)]">
                   <img 
-                    src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=400" 
+                    src={settings.profileImageUrl} 
                     alt="Zidan Mahmud" 
                     className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                   />
