@@ -1,14 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/db';
 import { Settings } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
-import { Save, RefreshCw, AlertTriangle, ShieldCheck, Image as ImageIcon } from 'lucide-react';
+import { Save, RefreshCw, AlertTriangle, ShieldCheck, Image as ImageIcon, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 
 const ContentManager: React.FC = () => {
   const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -30,15 +32,31 @@ const ContentManager: React.FC = () => {
     update();
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const publicUrl = await db.uploadImage(file);
+    if (publicUrl) {
+      setSettings(prev => ({ ...prev, profileImageUrl: publicUrl }));
+    }
+    setUploading(false);
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2 uppercase">Global Configuration</h1>
           <p className="text-slate-400">Master controls for identity, headlines, and mission parameters.</p>
         </div>
         {success && (
-          <div className="flex items-center gap-2 text-green-400 text-sm font-mono animate-bounce">
+          <div className="flex items-center gap-2 text-green-400 text-sm font-mono animate-bounce bg-green-500/10 px-4 py-2 rounded-full border border-green-500/20">
             <ShieldCheck size={18} /> KERNEL_UPDATED
           </div>
         )}
@@ -47,8 +65,68 @@ const ContentManager: React.FC = () => {
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="glass p-8 rounded-3xl border border-slate-800 space-y-6">
-            <h3 className="text-xl font-bold text-white border-b border-slate-800 pb-4">CORE PARAMETERS</h3>
+            <h3 className="text-xl font-bold text-white border-b border-slate-800 pb-4 flex items-center gap-3">
+              <span className="w-2 h-2 bg-cyan-400 rounded-full"></span>
+              CORE PARAMETERS
+            </h3>
             
+            {/* Identity Visual Control */}
+            <div className="p-6 bg-slate-900/50 rounded-2xl border border-slate-800 space-y-6">
+               <label className="text-xs font-mono font-bold text-slate-500 uppercase flex items-center gap-2">
+                <ImageIcon size={14} /> Profile Identity Visual
+              </label>
+              
+              <div className="flex flex-col md:flex-row gap-8 items-center">
+                <div className="relative group">
+                   <div className="w-40 h-40 rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl relative">
+                      <img 
+                        src={settings.profileImageUrl} 
+                        className={`w-full h-full object-cover transition-opacity ${uploading ? 'opacity-30' : 'opacity-100'}`} 
+                        alt="Profile Preview" 
+                      />
+                      {uploading && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                           <Loader2 className="text-cyan-400 animate-spin" size={32} />
+                        </div>
+                      )}
+                   </div>
+                   {!uploading && (
+                      <button 
+                        type="button"
+                        onClick={triggerFileInput}
+                        className="absolute -bottom-3 -right-3 p-3 bg-cyan-500 text-slate-950 rounded-2xl hover:bg-cyan-400 transition-all shadow-xl hover:scale-110 active:scale-95"
+                      >
+                        <Upload size={20} />
+                      </button>
+                   )}
+                </div>
+
+                <div className="flex-grow space-y-4 w-full">
+                   <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="image/*"
+                   />
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Direct Source URL</label>
+                      <input 
+                        type="text" 
+                        value={settings.profileImageUrl}
+                        onChange={e => setSettings({...settings, profileImageUrl: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white text-sm font-mono"
+                        placeholder="https://..."
+                      />
+                   </div>
+                   <p className="text-[10px] text-slate-600 font-mono leading-relaxed">
+                     Accepted: JPG, PNG, WEBP. Max size: 2MB. <br/>
+                     Uploading a file will automatically update the URL field.
+                   </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className="text-xs font-mono font-bold text-slate-500 uppercase">Site Name</label>
@@ -56,16 +134,16 @@ const ContentManager: React.FC = () => {
                   type="text" 
                   value={settings.siteName}
                   onChange={e => setSettings({...settings, siteName: e.target.value})}
-                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white focus:border-cyan-500 outline-none transition-colors"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-slate-500 uppercase">Years of Exp</label>
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase">Years of Experience</label>
                 <input 
                   type="number" 
                   value={settings.yearsExperience}
                   onChange={e => setSettings({...settings, yearsExperience: parseInt(e.target.value)})}
-                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white focus:border-cyan-500 outline-none transition-colors"
                 />
               </div>
             </div>
@@ -76,27 +154,8 @@ const ContentManager: React.FC = () => {
                 type="text" 
                 value={settings.heroHeadline}
                 onChange={e => setSettings({...settings, heroHeadline: e.target.value})}
-                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white focus:border-cyan-500 outline-none transition-colors"
               />
-            </div>
-
-            {/* Profile Image URL Input */}
-            <div className="space-y-1">
-              <label className="text-xs font-mono font-bold text-slate-500 uppercase flex items-center gap-2">
-                <ImageIcon size={14} /> Profile Image URL
-              </label>
-              <div className="flex gap-4">
-                <input 
-                  type="text" 
-                  value={settings.profileImageUrl}
-                  onChange={e => setSettings({...settings, profileImageUrl: e.target.value})}
-                  className="flex-grow bg-slate-900 border border-slate-800 p-3 rounded-lg text-white text-sm"
-                  placeholder="https://..."
-                />
-                <div className="w-12 h-12 rounded-lg border border-slate-800 overflow-hidden shrink-0">
-                  <img src={settings.profileImageUrl} className="w-full h-full object-cover" alt="Preview" />
-                </div>
-              </div>
             </div>
 
             <div className="space-y-1">
@@ -105,17 +164,17 @@ const ContentManager: React.FC = () => {
                 rows={2}
                 value={settings.heroSubheadline}
                 onChange={e => setSettings({...settings, heroSubheadline: e.target.value})}
-                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white resize-none focus:border-cyan-500 outline-none transition-colors"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-mono font-bold text-slate-500 uppercase">About Bio</label>
+              <label className="text-xs font-mono font-bold text-slate-500 uppercase">About Intelligence Bio</label>
               <textarea 
-                rows={4}
+                rows={5}
                 value={settings.aboutBio}
                 onChange={e => setSettings({...settings, aboutBio: e.target.value})}
-                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white resize-none focus:border-cyan-500 outline-none transition-colors"
               />
             </div>
           </div>
@@ -131,33 +190,44 @@ const ContentManager: React.FC = () => {
                   type="email" 
                   value={settings.contactEmail}
                   onChange={e => setSettings({...settings, contactEmail: e.target.value})}
-                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-slate-500 uppercase">Github URL</label>
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase">Github Repository</label>
                 <input 
                   type="text" 
                   value={settings.socialLinks.github}
                   onChange={e => setSettings({...settings, socialLinks: {...settings.socialLinks, github: e.target.value}})}
-                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
+                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-mono font-bold text-slate-500 uppercase">LinkedIn Profile</label>
+                <input 
+                  type="text" 
+                  value={settings.socialLinks.linkedin}
+                  onChange={e => setSettings({...settings, socialLinks: {...settings.socialLinks, linkedin: e.target.value}})}
+                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white"
                 />
               </div>
             </div>
           </div>
 
-          <div className="p-8 glass bg-red-500/5 rounded-3xl border border-red-500/20 space-y-4">
+          <div className="p-8 glass bg-red-500/5 rounded-[2rem] border border-red-500/20 space-y-6">
             <div className="flex items-center gap-3 text-red-400">
-              <AlertTriangle size={20} />
-              <h4 className="font-bold">DANGER ZONE</h4>
+              <AlertTriangle size={20} className="animate-pulse" />
+              <h4 className="font-bold uppercase tracking-tighter">Security Protocol</h4>
             </div>
-            <p className="text-xs text-slate-500">Updates here affect the public-facing kernel immediately.</p>
+            <p className="text-xs text-slate-500 leading-relaxed font-mono">
+              Synchronizing changes will override current kernel parameters. This operation is recorded in the system audit logs.
+            </p>
             <button 
               type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-cyan-500 text-slate-950 font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={loading || uploading}
+              className="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-cyan-500/20 uppercase tracking-[0.2em] text-xs"
             >
-              {loading ? <RefreshCw className="animate-spin" size={20} /> : <><Save size={20} /> COMMIT CHANGES</>}
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> COMMIT_CHANGES</>}
             </button>
           </div>
         </div>
