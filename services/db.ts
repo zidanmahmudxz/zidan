@@ -8,7 +8,7 @@ import { INITIAL_SETTINGS } from '../constants';
  * Credentials obtained from Supabase Dashboard > Project Settings > API
  */
 const SUPABASE_URL = 'https://maxuwumvpyqqijxhmrvd.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; // আপনার Supabase ড্যাশবোর্ড থেকে 'anon' কি-টি এখানে বসান
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHV3dW12cHlxcWlqeGhtcnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzE1OTMsImV4cCI6MjA4NjA0NzU5M30.j4O6UGjBnBlYGCnaODLJsUAF3jA93Vgl76JvOKVNbuY'; // আপনার Anon Key টি এখানে বসান
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -18,8 +18,24 @@ const KEYS = {
 };
 
 export const db = {
-  init: () => {
-    db.addLog('Supabase Kernel Connected. Global Data Sync Active.', 'SUCCESS');
+  // কানেকশন টেস্ট করার জন্য নতুন মেথড
+  init: async () => {
+    try {
+      // একটি সিম্পল কুয়েরি করে চেক করছি কানেকশন ঠিক আছে কি না
+      const { error } = await supabase.from('settings').select('id').limit(1);
+      
+      if (error) {
+        if (error.message.includes('apiKey')) {
+          db.addLog('CRITICAL: Supabase API Key (Anon Key) missing or invalid.', 'ERROR');
+        } else {
+          db.addLog(`Kernel Link Error: ${error.message}`, 'ERROR');
+        }
+      } else {
+        db.addLog('Nexus Uplink Established. Cloud Database Syncing...', 'SUCCESS');
+      }
+    } catch (err) {
+      db.addLog('Kernel Initialization Failed. Check Network/API Key.', 'ERROR');
+    }
   },
 
   // Settings
@@ -70,6 +86,10 @@ export const db = {
   // Skills
   getSkills: async (): Promise<Skill[]> => {
     const { data, error } = await supabase.from('skills').select('*').order('name');
+    if (error) {
+       db.addLog(`Failed to fetch expertise matrix: ${error.message}`, 'ERROR');
+       return [];
+    }
     return data || [];
   },
 
@@ -79,8 +99,11 @@ export const db = {
     else db.addLog(`Skill injection failed: ${error.message}`, 'ERROR');
   },
 
-  updateSkills: async (skills: Skill[]) => {
-    // Bulk updates logic if needed
+  // Added deleteSkill to support expertise management
+  deleteSkill: async (id: string) => {
+    const { error } = await supabase.from('skills').delete().eq('id', id);
+    if (!error) db.addLog(`Skill module redacted from Cloud: ID ${id}`, 'WARN');
+    else db.addLog(`Skill deletion failed: ${error.message}`, 'ERROR');
   },
 
   // Projects
@@ -108,6 +131,7 @@ export const db = {
       date: project.date
     }]);
     if (!error) db.addLog(`New Archive Stored in Cloud: ${project.title}`, 'SUCCESS');
+    else db.addLog(`Project storage failed: ${error.message}`, 'ERROR');
   },
 
   deleteProject: async (id: string) => {
@@ -140,6 +164,7 @@ export const db = {
       date: blog.date
     }]);
     if (!error) db.addLog(`Breach Log updated via Cloud: ${blog.title}`, 'SUCCESS');
+    else db.addLog(`Blog post failed: ${error.message}`, 'ERROR');
   },
 
   deleteBlog: async (id: string) => {
@@ -147,7 +172,7 @@ export const db = {
     if (!error) db.addLog(`Article purged from Cloud: ID ${id}`, 'WARN');
   },
 
-  // Logs (Local state logs)
+  // Logs (Local storage for session history)
   getLogs: (): SystemLog[] => {
     const data = localStorage.getItem(KEYS.LOGS);
     return data ? JSON.parse(data) : [];
@@ -164,7 +189,7 @@ export const db = {
     localStorage.setItem(KEYS.LOGS, JSON.stringify([newLog, ...current].slice(0, 50)));
   },
 
-  // Auth (Simple logic remains, can be upgraded to Supabase Auth)
+  // Auth
   getUser: (): User | null => {
     const data = localStorage.getItem(KEYS.USER);
     return data ? JSON.parse(data) : null;

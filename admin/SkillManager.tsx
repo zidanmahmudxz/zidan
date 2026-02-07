@@ -24,13 +24,12 @@ const SkillManager: React.FC = () => {
     fetchSkills();
   }, []);
 
-  // Fix: Handle async updateSkills
+  // Fix: Handle async deleteSkill
   const handleDelete = async (id: string) => {
-    const updated = skills.filter(s => s.id !== id);
-    await db.updateSkills(updated);
+    // Corrected to use db.deleteSkill as db.updateSkills does not exist
+    await db.deleteSkill(id);
     const data = await db.getSkills();
     setSkills(data);
-    db.addLog(`Skill removed: ID ${id}`, 'WARN');
   };
 
   // Fix: Handle async addSkill

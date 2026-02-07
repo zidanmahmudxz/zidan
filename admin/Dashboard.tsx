@@ -2,21 +2,30 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { SystemLog, Blog, Project, Skill } from '../types';
-import { Shield, BookOpen, Briefcase, Terminal, Activity, CheckCircle, AlertCircle, Plus, Loader2, ArrowUpRight, Zap } from 'lucide-react';
+import { Shield, BookOpen, Briefcase, Terminal, Activity, CheckCircle, AlertCircle, Plus, Loader2, ArrowUpRight, Zap, Globe, Wifi, WifiOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const [logs, setLogs] = useState<SystemLog[]>(db.getLogs());
   const [data, setData] = useState<{blogs: Blog[], projects: Project[], skills: Skill[]}>({ blogs: [], projects: [], skills: [] });
   const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'testing' | 'online' | 'offline'>('testing');
 
   useEffect(() => {
     const fetchData = async () => {
-      const blogs = await db.getBlogs();
-      const projects = await db.getProjects();
-      const skills = await db.getSkills();
-      setData({ blogs, projects, skills });
-      setLoading(false);
+      try {
+        // Test connection while fetching data
+        const blogs = await db.getBlogs();
+        const projects = await db.getProjects();
+        const skills = await db.getSkills();
+        
+        setData({ blogs, projects, skills });
+        setConnectionStatus('online');
+      } catch (err) {
+        setConnectionStatus('offline');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
 
@@ -62,13 +71,28 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {/* Connectivity Badge */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono text-[10px] font-bold uppercase tracking-widest ${
+            connectionStatus === 'online' 
+              ? 'bg-green-500/10 border-green-500/30 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.1)]' 
+              : 'bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+          }`}>
+            {connectionStatus === 'online' ? (
+              <>
+                <Wifi size={14} className="animate-pulse" />
+                Cloud_Sync: Active
+              </>
+            ) : (
+              <>
+                <WifiOff size={14} />
+                Uplink: Offline
+              </>
+            )}
+          </div>
+          
           <Link to="/" target="_blank" className="px-4 py-2 glass border border-slate-800 rounded-xl text-[10px] font-mono font-bold text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all flex items-center gap-2 uppercase tracking-widest">
             Surface View <ArrowUpRight size={14} />
           </Link>
-          <div className="text-right px-4 py-2 bg-slate-900/50 border border-slate-800 rounded-xl">
-            <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none mb-1">Session Local</p>
-            <p className="text-xs font-mono text-cyan-400">{new Date().toLocaleTimeString()}</p>
-          </div>
         </div>
       </div>
 
