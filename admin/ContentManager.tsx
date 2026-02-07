@@ -3,15 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { Settings } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
-import { Save, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Save, RefreshCw, AlertTriangle, ShieldCheck, Image as ImageIcon } from 'lucide-react';
 
 const ContentManager: React.FC = () => {
-  // Fix: Handle async getSettings
   const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Fix: Fetch initial settings
   useEffect(() => {
     const fetchSettings = async () => {
       const data = await db.getSettings();
@@ -23,8 +21,6 @@ const ContentManager: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Fix: Handle async updateSettings
     const update = async () => {
       await db.updateSettings(settings);
       setLoading(false);
@@ -49,7 +45,6 @@ const ContentManager: React.FC = () => {
       </div>
 
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Identity & Mission */}
         <div className="lg:col-span-2 space-y-6">
           <div className="glass p-8 rounded-3xl border border-slate-800 space-y-6">
             <h3 className="text-xl font-bold text-white border-b border-slate-800 pb-4">CORE PARAMETERS</h3>
@@ -85,6 +80,25 @@ const ContentManager: React.FC = () => {
               />
             </div>
 
+            {/* Profile Image URL Input */}
+            <div className="space-y-1">
+              <label className="text-xs font-mono font-bold text-slate-500 uppercase flex items-center gap-2">
+                <ImageIcon size={14} /> Profile Image URL
+              </label>
+              <div className="flex gap-4">
+                <input 
+                  type="text" 
+                  value={settings.profileImageUrl}
+                  onChange={e => setSettings({...settings, profileImageUrl: e.target.value})}
+                  className="flex-grow bg-slate-900 border border-slate-800 p-3 rounded-lg text-white text-sm"
+                  placeholder="https://..."
+                />
+                <div className="w-12 h-12 rounded-lg border border-slate-800 overflow-hidden shrink-0">
+                  <img src={settings.profileImageUrl} className="w-full h-full object-cover" alt="Preview" />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-1">
               <label className="text-xs font-mono font-bold text-slate-500 uppercase">Hero Subheadline</label>
               <textarea 
@@ -104,20 +118,9 @@ const ContentManager: React.FC = () => {
                 className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
               />
             </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-mono font-bold text-slate-500 uppercase">Mission Statement</label>
-              <textarea 
-                rows={2}
-                value={settings.missionStatement}
-                onChange={e => setSettings({...settings, missionStatement: e.target.value})}
-                className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
-              />
-            </div>
           </div>
         </div>
 
-        {/* Social & Contact */}
         <div className="space-y-8">
           <div className="glass p-8 rounded-3xl border border-slate-800 space-y-6">
             <h3 className="text-xl font-bold text-white border-b border-slate-800 pb-4">SOCIAL UPLINKS</h3>
@@ -140,15 +143,6 @@ const ContentManager: React.FC = () => {
                   className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-slate-500 uppercase">LinkedIn URL</label>
-                <input 
-                  type="text" 
-                  value={settings.socialLinks.linkedin}
-                  onChange={e => setSettings({...settings, socialLinks: {...settings.socialLinks, linkedin: e.target.value}})}
-                  className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white"
-                />
-              </div>
             </div>
           </div>
 
@@ -157,7 +151,7 @@ const ContentManager: React.FC = () => {
               <AlertTriangle size={20} />
               <h4 className="font-bold">DANGER ZONE</h4>
             </div>
-            <p className="text-xs text-slate-500">Updates here affect the public-facing kernel immediately. Proceed with caution.</p>
+            <p className="text-xs text-slate-500">Updates here affect the public-facing kernel immediately.</p>
             <button 
               type="submit"
               disabled={loading}
